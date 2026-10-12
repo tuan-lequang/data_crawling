@@ -1,0 +1,212 @@
+{
+ "full": {
+  "shop_id": 123456789,
+  "item_id": 22093519050,
+  "title": "Giày Sneaker Nam Trắng Basic Đế Êm Chống Trượt",
+  "currency": "VND",
+  "description": "Giày sneaker nam phong cách basic, đế êm, dễ phối đồ.",
+  "brand": "NovaStep",
+  "brand_id": 1234567,
+  "condition": 1,
+  "shop_location": "TP. Hồ Chí Minh",
+  "cat_id": 11035801,
+  "price": 219000,
+  "price_min": 219000,
+  "price_max": 249000,
+  "price_before_discount": 289000,
+  "price_min_before_discount": 289000,
+  "price_max_before_discount": 329000,
+  "discount_pct": 24,
+  "availability": "IN_STOCK",
+  "liked_count": 812,
+  "stock": 540,
+  "is_hide_stock": false,
+  "sold": 1530,
+  "historical_sold": 4210,
+  "view_count": 9300,
+  "is_pre_order": false,
+  "has_model_with_available_shopee_stock": true,
+  "rating_star": 4.8,
+  "rating_count": null,
+  "total_ratings": null,
+  "images": [
+   "https://example.test/img/a1.jpg",
+   "https://example.test/img/a2.jpg"
+  ],
+  "categories": [
+   {
+    "name": "Thời Trang Nam",
+    "catid": 11035567,
+    "url": "https://example.test/cat/11035567"
+   },
+   {
+    "name": "Giày Dép Nam",
+    "catid": 11035801,
+    "url": "https://example.test/cat/11035801"
+   }
+  ],
+  "attributes": [
+   {
+    "name": "Thương hiệu",
+    "value": "NovaStep"
+   }
+  ],
+  "models": [
+   {
+    "name": "Trắng, 40",
+    "price": 219000,
+    "stock": 40
+   }
+  ],
+  "tier_variations": [
+   {
+    "name": "Size",
+    "options": [
+     "39",
+     "40",
+     "41"
+    ]
+   }
+  ],
+  "breadcrumb": [
+   "Thời Trang Nam",
+   "Giày Dép Nam"
+  ],
+  "label_ids": [],
+  "item_has_video": false,
+  "shop": {
+   "shopid": 123456789,
+   "name": "Sneaker House VN",
+   "username": "sneaker.house.vn",
+   "location": "TP. Hồ Chí Minh",
+   "rating_star": 4.9,
+   "item_count": 320,
+   "follower_count": 15400,
+   "response_rate": 98,
+   "response_time": 600,
+   "is_official_shop": true,
+   "is_shopee_verified": true
+  }
+ },
+ "sparse": {
+  "shop_id": 555000111,
+  "item_id": 33000000001,
+  "title": "  Áo Thun Nam   Cotton  Cổ Tròn ",
+  "currency": "VND",
+  "price": 183200,
+  "price_min": 183200,
+  "price_max": 183200,
+  "price_before_discount": null,
+  "discount_pct": null,
+  "sold": null,
+  "rating_star": null,
+  "rating_count": null,
+  "total_ratings": null,
+  "images": [],
+  "categories": [],
+  "shop": {
+   "shopid": 555000111,
+   "name": null,
+   "location": null,
+   "is_official_shop": false,
+   "is_shopee_verified": null
+  }
+ },
+ "with_url": {
+  "shop_id": 123456789,
+  "item_id": 22093519051,
+  "title": "Giày Thể Thao Nam Đế Cao",
+  "currency": "VND",
+  "description": "Giày sneaker nam phong cách basic, đế êm, dễ phối đồ.",
+  "brand": "NovaStep",
+  "brand_id": 1234567,
+  "condition": 1,
+  "shop_location": "TP. Hồ Chí Minh",
+  "cat_id": 11035801,
+  "price": 219000,
+  "price_min": 219000,
+  "price_max": 249000,
+  "price_before_discount": 289000,
+  "price_min_before_discount": 289000,
+  "price_max_before_discount": 329000,
+  "discount_pct": 24,
+  "availability": "IN_STOCK",
+  "liked_count": 812,
+  "stock": 540,
+  "is_hide_stock": false,
+  "sold": 1530,
+  "historical_sold": 4210,
+  "view_count": 9300,
+  "is_pre_order": false,
+  "has_model_with_available_shopee_stock": true,
+  "rating_star": 4.8,
+  "rating_count": null,
+  "total_ratings": null,
+  "images": [
+   "https://example.test/img/a1.jpg",
+   "https://example.test/img/a2.jpg"
+  ],
+  "categories": [
+   {
+    "name": "Thời Trang Nam",
+    "catid": 11035567,
+    "url": "https://example.test/cat/11035567"
+   },
+   {
+    "name": "Giày Dép Nam",
+    "catid": 11035801,
+    "url": "https://example.test/cat/11035801"
+   }
+  ],
+  "attributes": [
+   {
+    "name": "Thương hiệu",
+    "value": "NovaStep"
+   }
+  ],
+  "models": [
+   {
+    "name": "Trắng, 40",
+    "price": 219000,
+    "stock": 40
+   }
+  ],
+  "tier_variations": [
+   {
+    "name": "Size",
+    "options": [
+     "39",
+     "40",
+     "41"
+    ]
+   }
+  ],
+  "breadcrumb": [
+   "Thời Trang Nam",
+   "Giày Dép Nam"
+  ],
+  "label_ids": [],
+  "item_has_video": false,
+  "shop": {
+   "shopid": 123456789,
+   "name": "Sneaker House VN",
+   "username": "sneaker.house.vn",
+   "location": "TP. Hồ Chí Minh",
+   "rating_star": 4.9,
+   "item_count": 320,
+   "follower_count": 15400,
+   "response_rate": 98,
+   "response_time": 600,
+   "is_official_shop": true,
+   "is_shopee_verified": true
+  },
+  "url": "https://example.test/product/123456789/22093519051"
+ },
+ "no_shop": {
+  "item_id": 44000000002,
+  "title": "Chuột Không Dây",
+  "price": 99000,
+  "sold": 12,
+  "rating_star": 5
+ }
+}
