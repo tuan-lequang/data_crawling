@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DEMO_FILE = BASE_DIR / "data" / "demo_products.json"
 EXPORT_DIR = BASE_DIR / "data" / "exports"
 
-# ---------------------------------------------------------------- data sources
+# -------------------------d-------------------------------------- data sources
 SOURCE_LIVE = "live_apify"   # value written to the data_source column
 SOURCE_DEMO = "demo"
 

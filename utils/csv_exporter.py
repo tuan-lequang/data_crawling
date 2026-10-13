@@ -19,6 +19,7 @@ from config import (
     ID_COLUMNS,
     PRICE_COLUMNS,
     STANDARD_COLUMNS,
+    TEXT_COLUMNS,
 )
 
 UTF8_BOM = b"\xef\xbb\xbf"
@@ -112,10 +113,12 @@ def verify_csv_bytes(data: bytes, df: pd.DataFrame) -> tuple[bool, str]:
         return False, "CSV columns differ from the standard schema."
     if len(back) != len(df):
         return False, "CSV row count differs from the DataFrame."
-    original = df["product_name"].astype("string").fillna("").tolist()
-    if back["product_name"].tolist() != original:
-        return False, "Vietnamese text changed during export."
-    return True, f"CSV verified: {len(back)} rows, {len(back.columns)} columns, UTF-8-SIG."
+    # Check every text field so Vietnamese text in keyword/shop/location/category is also protected.
+    for column in TEXT_COLUMNS:
+        original = df[column].astype("string").fillna("").tolist()
+        if back[column].tolist() != original:
+            return False, f"Text changed during CSV export in column '{column}'."
+    return True, f"CSV verified: {len(back)} rows, {len(back.columns)} columns, UTF-8-SIG; text fields preserved."
 
 
 def verify_excel_bytes(data: bytes, df: pd.DataFrame) -> tuple[bool, str]:
@@ -137,10 +140,13 @@ def verify_excel_bytes(data: bytes, df: pd.DataFrame) -> tuple[bool, str]:
     if len(rows) - 1 != len(df):
         return False, "Excel row count differs from the DataFrame."
 
-    original_names = df["product_name"].astype("string").fillna("").tolist()
-    back_names = [row[headers.index("product_name")] or "" for row in rows[1:]]
-    if back_names != original_names:
-        return False, "Vietnamese text changed during Excel export."
+    # Verify every text field, not only the product name.
+    for column in TEXT_COLUMNS:
+        idx = headers.index(column)
+        expected_text = df[column].astype("string").fillna("").tolist()
+        actual_text = ["" if row[idx] is None else str(row[idx]) for row in rows[1:]]
+        if actual_text != expected_text:
+            return False, f"Text changed during Excel export in column '{column}'."
 
     for column in ID_COLUMNS:
         idx = headers.index(column)
@@ -154,7 +160,7 @@ def verify_excel_bytes(data: bytes, df: pd.DataFrame) -> tuple[bool, str]:
 
 def export_csv(df: pd.DataFrame, directory: Path = EXPORT_DIR,
                now: Optional[datetime] = None) -> Path:
-    """Write the CSV to disk (used by scripts/tests; the UI serves bytes from memory)."""
+    """Write and verify a CSV file on disk, returning its path."""
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / make_filename(now)
     data = dataframe_to_csv_bytes(df)

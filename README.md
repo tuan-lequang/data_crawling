@@ -3,7 +3,7 @@
 A small Streamlit app that demonstrates a complete data pipeline:
 
 ```
-keyword → collect product data → parse → clean → remove duplicates → DataFrame → CSV
+keyword → collect product data → parse → clean → remove duplicates → DataFrame → CSV/Excel
 ```
 
 It runs in **two clearly separated modes**:
@@ -34,11 +34,11 @@ Cleaning         fixes the VALUES  text/number formats, ranges, whitespace
 Deduplication    by product_id, fallback key if missing
 Sort + trim      to the requested number (never padded)
       ▼
-Pandas DataFrame → Streamlit table → CSV download (UTF-8-SIG)
+Pandas DataFrame → Streamlit table → CSV and/or Excel download
 ```
 
 Live architecture in one line:
-`Streamlit → Apify API → xtracto/shopee-scraper → Shopee Vietnam → Raw JSON → Parser → Cleaning → Pandas → CSV`
+`Streamlit → Apify API → xtracto/shopee-scraper → Shopee Vietnam → Raw JSON → Parser → Cleaning → Pandas → CSV/Excel`
 
 Everything after the provider is identical for live and demo data. That is why the demo is a faithful way to show the processing and export steps.
 
@@ -59,6 +59,7 @@ shopee-crawler/
 │   ├── csv_exporter.py  UTF-8-SIG export + read-back verification
 │   └── validators.py    keyword / count / sort checks
 ├── data/demo_products.json   500 raw demo records (synthetic)
+├── exports/             generated CSV/XLSX files are saved here
 ├── scripts/
 │   ├── generate_demo.py      rebuilds the demo file (fixed seed → identical output)
 │   └── live_smoke.py         one small REAL Apify run to check your token
@@ -120,7 +121,7 @@ Environment variables:
 python scripts/live_smoke.py
 ```
 
-It runs the real pipeline for 10 products, prints counts and a few rows, and saves a CSV to `data/exports/`.
+It runs the real pipeline for 10 products, prints counts and a few rows, and saves a CSV to the project-root `exports/` folder.
 
 ### How the Apify integration works
 
@@ -175,12 +176,16 @@ The live Apify output is mostly numeric already; the text-format rules are defen
 - Try keywords: `giày sneaker nam`, `áo thun nam`, `balo laptop`, `tai nghe bluetooth`, `chuột không dây`, `bàn phím cơ`.
 - Demo "Relevancy" means file order, **not** Shopee's ranking. Other sorts are applied locally.
 
-## 9. CSV export
+## 9. Export (CSV and/or Excel)
 
-- Encoding **UTF-8 with BOM (`utf-8-sig`)** so Excel on Windows shows Vietnamese correctly.
-- File name: `shopee_products_<YYYYMMDD_HHMMSS>.csv`, e.g. `shopee_products_20261007_135500.csv`.
-- The app reads the CSV back before offering the download and shows `CSV verified: N rows, 20 columns, UTF-8-SIG`.
-- Excel tip: long ID numbers (`product_id`, `shop_id`) may appear as `2.2E+10`. The file is correct; format those columns as **Text** in Excel.
+- The UI lets the user choose **CSV**, **Excel (.xlsx)**, or **both**. At least one format must be selected. When a crawl finishes, each selected format is saved to the project-root `exports/` folder and is also offered through a browser download button. The browser copy still follows the browser download settings.
+- CSV uses **UTF-8 with BOM (`utf-8-sig`)**. The exporter reads the file back and verifies that all text columns (including keyword, shop name/location, and category) survive unchanged.
+- The app reports text cells containing a literal `?` because those characters may already have replaced Vietnamese letters in the source/input. Encoding cannot recover characters lost before export. For those records, check the raw Apify item/source rather than blindly replacing `?`.
+- CSV file name: `shopee_products_<YYYYMMDD_HHMMSS>.csv`.
+- Excel file name: `shopee_products_<YYYYMMDD_HHMMSS>.xlsx`.
+- Excel contains one `Products` sheet with all 20 standard columns, frozen headers and an autofilter.
+- Long IDs (`product_id`, `shop_id`) are written as **text** in Excel to avoid scientific notation such as `2.2E+10`.
+- Before downloads are offered, the app reads each selected format back and verifies row count, 20-column schema and all text columns.
 
 ## 10. Testing
 
@@ -188,7 +193,7 @@ The live Apify output is mostly numeric already; the text-format rules are defen
 python -m pytest
 ```
 
-The suite uses mocks, so it needs no token, no internet and costs nothing. It covers the parser (with the real record structure as fixture), all cleaning rules, de-duplication, CSV encoding, the demo pipeline, the Apify provider (missing/invalid token, 401/403/429/5xx, network error, timeout + abort, failed run, empty result), and the Streamlit UI (headless).
+The suite uses mocks, so it needs no token, no internet and costs nothing. It covers the parser (with the real record structure as fixture), all cleaning rules, de-duplication, CSV/Excel export and round-trip verification, the demo pipeline, the Apify provider (missing/invalid token, 401/403/429/5xx, network error, timeout + abort, failed run, empty result), and the Streamlit UI (headless).
 
 ## 11. Limitations
 
@@ -205,7 +210,7 @@ The suite uses mocks, so it needs no token, no internet and costs nothing. It co
 
 1. Start with **Demo Dataset**, keyword `giày sneaker nam`, 50 products → *Start Crawling*.
 2. Point at the stage list, then the metrics (fetched → valid → duplicates removed → final).
-3. Show the table, then **Download CSV** and open it in Excel (Vietnamese is intact).
+3. Show the table, choose **CSV**, **Excel**, or **both**, then download. Vietnamese text is preserved.
 4. Switch to **Live Shopee via Apify** with a small request (10–20 products) and show the real elapsed-time status.
 5. Keep a CSV from an earlier live run as a backup in case the network fails.
 

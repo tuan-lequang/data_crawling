@@ -21,8 +21,9 @@ from utils.csv_exporter import (
 def sample_df():
     return clean_dataframe(pd.DataFrame([
         {"product_id": 22093519050, "product_name": "Giày Sneaker Nam Đế Êm, \"Hot\"", "shop_id": 5,
-         "shop_name": "Sneaker House VN", "price": 219000, "rating": 4.8, "sold": 1500,
-         "is_shopee_verified": True, "data_source": "demo"},
+         "shop_name": "Cửa hàng giày Việt", "shop_location": "Thành phố Hồ Chí Minh",
+         "category": "Điện thoại & phụ kiện", "keyword": "điện thoại", "price": 219000,
+         "rating": 4.8, "sold": 1500, "is_shopee_verified": True, "data_source": "demo"},
         {"product_id": 2, "product_name": "Áo thun nam", "sold": None, "rating": None},
     ]))
 
@@ -61,6 +62,9 @@ def test_verify_detects_missing_bom_and_changed_text():
     other = df.copy()
     other.loc[0, "product_name"] = "Khác"
     assert verify_csv_bytes(data, other)[0] is False
+    other = df.copy()
+    other.loc[0, "keyword"] = "dien thoai"
+    assert verify_csv_bytes(data, other)[0] is False                        # check non-title text too
 
 
 def test_export_csv_writes_a_readable_file(tmp_path):
@@ -70,6 +74,8 @@ def test_export_csv_writes_a_readable_file(tmp_path):
     assert path.read_bytes().startswith(UTF8_BOM)
     back = pd.read_csv(path, encoding="utf-8-sig")
     assert back.loc[0, "product_name"] == 'Giày Sneaker Nam Đế Êm, "Hot"'
+    assert back.loc[0, "shop_location"] == "Thành phố Hồ Chí Minh"
+    assert back.loc[0, "keyword"] == "điện thoại"
 
 
 def test_empty_dataframe_exports_header_only():
@@ -94,6 +100,7 @@ def test_excel_roundtrip_and_schema():
     assert headers == STANDARD_COLUMNS and ws.max_row == len(df) + 1
     assert ws[2][0].value == "22093519050"  # product_id remains text, not scientific notation
     assert ws[2][1].value == 'Giày Sneaker Nam Đế Êm, "Hot"'
+    assert ws.cell(row=2, column=headers.index("keyword") + 1).value == "điện thoại"
 
 
 def test_export_excel_writes_readable_file(tmp_path):

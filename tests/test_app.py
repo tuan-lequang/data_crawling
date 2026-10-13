@@ -28,7 +28,7 @@ def test_app_loads_without_token(app):
 
 
 def test_demo_run_shows_metrics_table_and_banner(app):
-    app.selectbox[0].set_value(50)
+    app.selectbox[0].set_value("50")
     app.button[0].click().run()
     assert not app.exception and not app.error
     m = metrics(app)
@@ -78,18 +78,19 @@ def test_result_survives_a_rerun(app):
 
 def test_fewer_products_warning_is_shown(app):
     app.text_input[0].set_value("bàn phím cơ")
-    app.selectbox[0].set_value(100)
+    app.selectbox[0].set_value("100")
     app.button[0].click().run()
     assert not app.exception
     assert any("Only" in w.value and "were available" in w.value for w in app.warning)
 
 
-def test_custom_product_count_is_available(app):
-    app.selectbox[0].set_value("Custom")
-    app.run()
+def test_custom_product_count_appears_before_starting_crawl(app):
+    app.selectbox[0].set_value("Custom").run()
+    assert not app.exception
     assert len(app.number_input) == 1
     assert app.number_input[0].min == 1
     assert app.number_input[0].max == 500
+    assert not app.metric  # selecting Custom must not start the pipeline
     app.number_input[0].set_value(37)
     app.button[0].click().run()
     assert not app.exception and not app.error
