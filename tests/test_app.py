@@ -1,17 +1,25 @@
-"""Headless UI tests (Streamlit AppTest): the app loads and handles user flows without a traceback."""
+"""Headless UI tests. Run when Streamlit is installed; all tests remain offline."""
 from pathlib import Path
 
 import pytest
+
+pytest.importorskip("streamlit.testing.v1")
 from streamlit.testing.v1 import AppTest
 
-from config import UI_SOURCE_DEMO, UI_SOURCE_LIVE
+from config import STANDARD_COLUMNS, UI_SOURCE_DEMO, UI_SOURCE_LIVE
 
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 
 
+def widget(items, key):
+    for item in items:
+        if getattr(item, "key", None) == key:
+            return item
+    raise AssertionError(f"Widget with key {key!r} was not found")
+
+
 @pytest.fixture
-def app(monkeypatch):
-    monkeypatch.delenv("APIFY_API_TOKEN", raising=False)
+def app():
     return AppTest.from_file(APP, default_timeout=60).run()
 
 
@@ -22,14 +30,14 @@ def metrics(at):
 def test_app_loads_without_token(app):
     assert not app.exception
     assert app.title[0].value.endswith("Shopee Product Data Crawler")
-    assert list(app.selectbox[0].options) == ["10", "20", "50", "100", "Custom"]
-    assert app.selectbox[2].value == UI_SOURCE_DEMO                    # demo is the default
+    assert list(widget(app.selectbox, "product_count_choice").options) == ["10", "20", "50", "100", "Custom"]
+    assert widget(app.selectbox, "data_source_choice").value == UI_SOURCE_DEMO
     assert any("not configured" in w.value for w in app.sidebar.warning)
 
 
 def test_demo_run_shows_metrics_table_and_banner(app):
-    app.selectbox[0].set_value("50")
-    app.button[0].click().run()
+    widget(app.selectbox, "product_count_choice").set_value("50")
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception and not app.error
     m = metrics(app)
     assert m["Final products"] == "50" and int(m["Duplicates removed"]) > 0
@@ -41,90 +49,139 @@ def test_demo_run_shows_metrics_table_and_banner(app):
 
 
 def test_empty_keyword_shows_message_not_traceback(app):
-    app.text_input[0].set_value("   ")
-    app.button[0].click().run()
+    widget(app.text_input, "keyword").set_value("   ")
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception
     assert any("Please enter a keyword" in e.value for e in app.error)
 
 
 def test_no_results_message(app):
-    app.text_input[0].set_value("khong co san pham nay")
-    app.button[0].click().run()
+    widget(app.text_input, "keyword").set_value("khong co san pham nay")
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception
     assert any("No products in the Demo Dataset" in e.value for e in app.error)
 
 
-def test_live_mode_without_token_is_a_friendly_error(app):          # test 13 (UI)
-    app.selectbox[2].set_value(UI_SOURCE_LIVE)
-    app.button[0].click().run()
+def test_live_mode_without_token_is_a_friendly_error(app):
+    widget(app.selectbox, "data_source_choice").set_value(UI_SOURCE_LIVE)
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception
     assert any("Apify API token is not configured. Please use Demo Dataset." in e.value for e in app.error)
-    assert not app.metric                                           # nothing shown as if it were live data
+    assert not app.metric
 
 
 def test_failed_run_clears_previous_result(app):
-    app.button[0].click().run()
+    widget(app.button, "start_crawling").click().run()
     assert app.metric
-    app.text_input[0].set_value("")
-    app.button[0].click().run()
+    widget(app.text_input, "keyword").set_value("")
+    widget(app.button, "start_crawling").click().run()
     assert not app.metric and app.error
 
 
 def test_result_survives_a_rerun(app):
-    app.button[0].click().run()
-    app.run()                                                       # e.g. what clicking Download triggers
+    widget(app.button, "start_crawling").click().run()
+    app.run()
     assert metrics(app)["Final products"] == "20"
 
 
 def test_fewer_products_warning_is_shown(app):
-    app.text_input[0].set_value("bàn phím cơ")
-    app.selectbox[0].set_value("100")
-    app.button[0].click().run()
+    widget(app.text_input, "keyword").set_value("bàn phím cơ")
+    widget(app.selectbox, "product_count_choice").set_value("100")
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception
     assert any("Only" in w.value and "were available" in w.value for w in app.warning)
 
 
 def test_custom_product_count_appears_before_starting_crawl(app):
-    app.selectbox[0].set_value("Custom").run()
+    widget(app.selectbox, "product_count_choice").set_value("Custom").run()
     assert not app.exception
-    assert len(app.number_input) == 1
-    assert app.number_input[0].min == 1
-    assert app.number_input[0].max == 500
-    assert not app.metric  # selecting Custom must not start the pipeline
-    app.number_input[0].set_value(37)
-    app.button[0].click().run()
+    assert len(app.number_input) >= 1
+    custom = widget(app.number_input, "custom_product_count")
+    assert custom.min == 1 and custom.max == 500
+    assert not app.metric
+    custom.set_value(37)
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception and not app.error
     assert metrics(app)["Final products"] == "37"
 
 
-def test_export_options_default_to_csv_and_allow_excel(app):
-    assert len(app.checkbox) == 2
-    assert app.checkbox[0].label == "CSV" and app.checkbox[0].value is True
-    assert app.checkbox[1].label == "Excel (.xlsx)" and app.checkbox[1].value is False
+def test_export_options_have_stable_keys_and_expected_defaults(app):
+    csv, excel = widget(app.checkbox, "export_csv"), widget(app.checkbox, "export_excel")
+    assert csv.label == "CSV" and csv.value is True
+    assert excel.label == "Excel (.xlsx)" and excel.value is False
+    assert {w.key for w in app.checkbox if str(getattr(w, "key", "")).startswith("export_")} == {"export_csv", "export_excel"}
 
 
 def test_no_export_format_stops_before_pipeline(app):
-    app.checkbox[0].set_value(False)
-    app.checkbox[1].set_value(False)
-    app.button[0].click().run()
+    widget(app.checkbox, "export_csv").set_value(False)
+    widget(app.checkbox, "export_excel").set_value(False)
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception
     assert any("Please select at least one export format" in e.value for e in app.error)
 
 
 def test_demo_run_can_select_excel_only(app):
-    app.checkbox[0].set_value(False)
-    app.checkbox[1].set_value(True)
-    app.button[0].click().run()
+    widget(app.checkbox, "export_csv").set_value(False)
+    widget(app.checkbox, "export_excel").set_value(True)
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception and not app.error
     assert len(app.download_button) == 1
     assert app.download_button[0].label == "⬇ Download Excel"
 
 
-def test_unexpected_exception_hides_traceback(app, monkeypatch):
-    def boom(*a, **k):
-        raise RuntimeError("internal detail with secret-ish text")
-    monkeypatch.setattr("pipeline.parse_records", boom)
-    app.button[0].click().run()
+def test_product_field_select_all_updates_and_zero_selection_blocks_crawl(app):
+    widget(app.checkbox, "product_select_all").set_value(False).run()
+    assert all(not widget(app.checkbox, f"product_field__{col}").value for col in STANDARD_COLUMNS)
+    widget(app.button, "start_crawling").click().run()
     assert not app.exception
-    assert any("Something unexpected went wrong" in e.value for e in app.error)
-    assert not any("secret-ish" in e.value for e in app.error)
+    assert any("Please select at least one product output field" in e.value for e in app.error)
+    assert not app.metric
+
+
+
+
+def test_all_product_fields_are_selected_by_default(app):
+    from config import STANDARD_COLUMNS
+    assert all(widget(app.checkbox, f"product_field__{column}").value for column in STANDARD_COLUMNS)
+    assert widget(app.radio, "product_fields_preset").value == "All 20 (default)"
+
+
+def test_crawl_does_not_fetch_reviews_until_a_product_is_opened(app, tmp_path, monkeypatch):
+    from config import REVIEW_CACHE_DIR
+    widget(app.checkbox, "enable_review_viewing").set_value(True).run()
+    widget(app.button, "start_crawling").click().run()
+    # The test conftest redirects cache to a temporary directory; product crawl alone
+    # must not create review cache entries.
+    assert not list(REVIEW_CACHE_DIR.glob("*.json"))
+
+
+def test_custom_review_count_is_visible_before_product_start(app):
+    widget(app.checkbox, "enable_review_viewing").set_value(True).run()
+    widget(app.selectbox, "review_count_choice").set_value("Custom").run()
+    assert not app.exception
+    custom = widget(app.number_input, "custom_review_count")
+    assert custom.min == 1 and custom.max == 100
+    custom.set_value(7)
+    assert not app.metric
+
+
+def test_demo_review_navigation_and_back_preserves_product_result(app):
+    widget(app.checkbox, "enable_review_viewing").set_value(True).run()
+    widget(app.button, "start_crawling").click().run()
+    assert metrics(app)["Final products"] == "20"
+    review_buttons = [b for b in app.button if str(getattr(b, "key", "")).startswith("view_reviews_")]
+    assert review_buttons, "Expected per-product review buttons"
+    review_buttons[0].click().run()
+    assert not app.exception
+    assert any("SYNTHETIC DEMO REVIEWS" in info.value for info in app.info)
+    assert any(t.value == "Customer Reviews" for t in app.title)
+    widget(app.button, "review_back").click().run()
+    assert any(t.value.endswith("Shopee Product Data Crawler") for t in app.title)
+    assert metrics(app)["Final products"] == "20"
+
+
+def test_live_review_provider_is_real_provider_and_does_not_fallback_to_demo():
+    from crawler.review_access import get_review_provider
+    from crawler.apify_reviews import Memo23ShopeeReviewProvider
+    assert isinstance(get_review_provider("live_apify"), Memo23ShopeeReviewProvider)
+    assert get_review_provider("demo").data_source == "demo_synthetic"

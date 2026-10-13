@@ -4,6 +4,8 @@ import math
 
 import pytest
 
+pytest.importorskip("apify_client")
+
 from config import SOURCE_LIVE
 from crawler.apify_shopee import MSG_NO_TOKEN, ApifyShopeeProvider, build_run_input
 from crawler.base import ConfigError, EmptyResultError, ProviderError

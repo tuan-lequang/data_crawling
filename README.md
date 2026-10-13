@@ -50,20 +50,33 @@ shopee-crawler/
 ├── pipeline.py          the whole flow in one readable place
 ├── config.py            every constant (columns, limits, Actor settings)
 ├── crawler/
-│   ├── base.py          provider interface + error types
-│   ├── apify_shopee.py  LIVE provider
-│   ├── demo_provider.py DEMO provider
-│   └── parser.py        raw JSON → standard record
+│   ├── base.py          product provider interface + errors
+│   ├── apify_shopee.py  existing LIVE product provider (unchanged)
+│   ├── demo_provider.py offline product provider
+│   ├── parser.py        raw product JSON → 20-column schema
+│   ├── review_base.py   review provider interface
+│   ├── review_access.py selects the Demo or Live review provider
+│   ├── apify_reviews.py  on-demand memo23 Live review provider
+│   ├── demo_reviews.py  synthetic offline review provider
+│   └── review_parser.py review records → minimal review schema
 ├── utils/
-│   ├── cleaning.py      value cleaning + de-duplication
-│   ├── csv_exporter.py  UTF-8-SIG export + read-back verification
-│   └── validators.py    keyword / count / sort checks
-├── data/demo_products.json   500 raw demo records (synthetic)
-├── exports/             generated CSV/XLSX files are saved here
+│   ├── cleaning.py      product value cleaning + de-duplication
+│   ├── csv_exporter.py  product CSV/Excel export + verification
+│   ├── validators.py   input validation
+│   ├── field_selection.py product/review output-field selection
+│   ├── review_cleaning.py review cleaning + de-duplication
+│   ├── pii_redaction.py best-effort free-text redaction
+│   ├── review_cache.py  local cache of normalized, redacted reviews
+│   ├── review_exporter.py separate review CSV/Excel export
+│   └── cost_disclosure.py provider-agnostic cost estimation helpers
+├── review_pipeline.py   review parse/clean/dedupe/cache workflow
+├── data/demo_products.json   500 raw demo products (synthetic)
+├── data/exports/        generated product/review CSV/XLSX files
+├── data/cache/reviews/  runtime cache (ignored by Git)
 ├── scripts/
 │   ├── generate_demo.py      rebuilds the demo file (fixed seed → identical output)
-│   └── live_smoke.py         one small REAL Apify run to check your token
-├── tests/               pytest suite (+ fixtures with the real record structure)
+│   └── live_smoke.py         manual REAL product Actor smoke test
+├── tests/               product + review tests and fixtures
 ├── .env.example  .gitignore  requirements.txt  pytest.ini  README.md
 ```
 
@@ -121,7 +134,7 @@ Environment variables:
 python scripts/live_smoke.py
 ```
 
-It runs the real pipeline for 10 products, prints counts and a few rows, and saves a CSV to the project-root `exports/` folder.
+It runs the real pipeline for 10 products, prints counts and a few rows, and saves a CSV to the `data/exports/` folder.
 
 ### How the Apify integration works
 
@@ -178,7 +191,7 @@ The live Apify output is mostly numeric already; the text-format rules are defen
 
 ## 9. Export (CSV and/or Excel)
 
-- The UI lets the user choose **CSV**, **Excel (.xlsx)**, or **both**. At least one format must be selected. When a crawl finishes, each selected format is saved to the project-root `exports/` folder and is also offered through a browser download button. The browser copy still follows the browser download settings.
+- The UI lets the user choose **CSV**, **Excel (.xlsx)**, or **both**. At least one format must be selected. When a crawl finishes, each selected format is saved to the `data/exports/` folder and is also offered through a browser download button. The browser copy still follows the browser download settings.
 - CSV uses **UTF-8 with BOM (`utf-8-sig`)**. The exporter reads the file back and verifies that all text columns (including keyword, shop name/location, and category) survive unchanged.
 - The app reports text cells containing a literal `?` because those characters may already have replaced Vietnamese letters in the source/input. Encoding cannot recover characters lost before export. For those records, check the raw Apify item/source rather than blindly replacing `?`.
 - CSV file name: `shopee_products_<YYYYMMDD_HHMMSS>.csv`.
@@ -210,8 +223,44 @@ The suite uses mocks, so it needs no token, no internet and costs nothing. It co
 
 1. Start with **Demo Dataset**, keyword `giày sneaker nam`, 50 products → *Start Crawling*.
 2. Point at the stage list, then the metrics (fetched → valid → duplicates removed → final).
-3. Show the table, choose **CSV**, **Excel**, or **both**, then download. Vietnamese text is preserved.
-4. Switch to **Live Shopee via Apify** with a small request (10–20 products) and show the real elapsed-time status.
-5. Keep a CSV from an earlier live run as a backup in case the network fails.
+3. Demonstrate **Product output fields** using All 20, Previous table view, and Custom. Explain that hidden IDs stay in the internal data for linking.
+4. Choose **CSV**, **Excel**, or **both** and download the output from `data/exports/` or the browser buttons.
+5. Enable **Review settings**, select a small count such as 5, and open **View reviews** for a Demo product. Make clear these reviews are synthetic, not actual Shopee comments. Show the review table, Back navigation and separate review export.
+6. If needed, switch to **Live Shopee via Apify** for the existing product crawl with a small request (10–20 products). For reviews on a Live product, review results are fetched only after a separate confirmation button and a per-run charge cap is sent to Apify.
+7. Keep a CSV from an earlier live product run as a backup in case the network fails.
 
 Why Demo exists: *"Live scraping depends on an external service, so the Demo Dataset guarantees the processing and export pipeline can still be demonstrated."*
+
+
+## 13. Product field selection
+
+Before starting a crawl, expand **Product output fields**. By default, all 20 standard fields are selected. The presets include **All 20 (default)**, **Previous table view** (the previous 11-column preview), and **Custom**. Individual field checkboxes and Select All update immediately. The selected fields control the product table and CSV/Excel exports, while the internal `PipelineResult.df` retains all 20 columns for joins, deduplication and review navigation. The crawl is blocked if no product field is selected.
+
+## 14. Review explorer (Demo and on-demand Live reviews)
+
+Enable **Review settings** before crawling to add a **View reviews** action to each product. Select a review limit (5, 10, 20, 50, or Custom) and select the review output fields independently. Review Custom input appears immediately, before Start Crawling. The maximum is configurable in `config.py`; zero is rejected.
+
+- For Demo products, opening a review page generates deterministic **synthetic example reviews** locally. These are not real Shopee reviews or actual customer statements. All review pages and exports are labelled `demo_synthetic`.
+- For Live products, the page uses the `memo23/shopee-reviews-scraper` Apify Actor only after you tick the charge acknowledgement and click the explicit **Fetch Live reviews** button. Opening a product's review page does not start a run.
+- The Live provider asks for written comments only, limits the run to the configured review count (1–100), sends `max_items` and `max_total_charge_usd`, and fails closed if the installed Apify client cannot send the charge cap. It does not use cookies, browser automation, proxies or CAPTCHA bypass.
+- The Actor reads a shop-level review feed, not a dedicated product review feed. Rows are kept only when a product ID is present, and the common parser drops rows belonging to another product. Results can be partial and the star-rating budget may be spread across ratings, so the returned reviews are not guaranteed to be the latest ones.
+- The UI estimate uses the Actor's published Free-tier price snapshot plus an assumed start event; this is not a quote and may not match your account. The per-run charge cap is also sent to Apify. Review the Actor's current Pricing tab and your account balance before fetching. No Live request happens automatically, and the app does not retry failed runs automatically.
+- Review records are separate from the product dataset. The page shows review count, requested maximum, cache state, coverage and ordering. You can return to the products without losing the product results.
+- Review output has 13 normalized fields: `review_id`, `product_id`, `shop_id`, `rating`, `comment`, `created_at`, `purchased_variant`, `like_count`, `seller_reply`, `review_image_count`, `review_images`, `data_source`, and `scraped_at`. Review image URLs are excluded from the default selection.
+- Review CSV and Excel files use the name `shopee_reviews_<product_id>_<YYYYMMDD_HHMMSS>.<csv|xlsx>` and are saved in `data/exports/`.
+
+### Review cache and privacy
+
+Only normalized, best-effort-redacted review records are cached locally, in `data/cache/reviews/`. Non-empty entries expire after 24 hours; empty results expire after 30 minutes. The cache key is hashed so product identifiers are not exposed in the filename. Use **Clear local review cache and return** on the review page to clear the local review cache.
+
+Automatic redaction attempts to replace common phone numbers, email addresses, URLs, long digit runs and explicitly marked contact handles before local cache, display or export. It can miss names, addresses, obfuscated or written-out numbers, and personal information expressed indirectly; it can also redact benign long numbers. It is not a guarantee of anonymization. The synthetic Demo data includes deliberately fake contact strings to exercise this safeguard.
+
+The app stores only normalized, best-effort-redacted review rows locally. The Live provider filters to the small allowlist of fields needed for the review schema and discards reviewer names, order IDs, buyer region and other direct identifiers before returning rows to the pipeline. After reading the default dataset, it attempts to delete the Actor's output dataset and default key-value store; the UI warns if deletion cannot be confirmed. This does not guarantee removal from provider logs or backups, and it does not change the provider's responsibility for remote data retention.
+
+## 15. Review access limitations and compliance note
+
+The existing Live product crawler is preserved and still behaves as before; this upgrade does not add a gate to it. Live review collection uses a third-party Apify Actor, not an official Shopee API, and is invoked only after explicit user confirmation. A third-party scraper does not itself establish permission to collect Shopee content; verify the applicable platform terms and authorization before using it. No CAPTCHA bypass, stealth mode, unauthorized login/cookies, proxy rotation or other anti-bot evasion is implemented.
+
+## 16. Testing the review workflow
+
+The review workflow is tested with synthetic records and fake Apify clients only. Automated tests must not call Shopee or Apify, use a real token or spend credits. The Live-provider tests verify the Actor input and charge cap with a fake client, plus response mapping, product attribution, redaction and remote-storage deletion attempts. The test suite isolates export/cache output in temporary directories so running tests does not create files in the project’s `data/exports/`.

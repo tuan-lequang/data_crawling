@@ -4,7 +4,7 @@
     python scripts/live_smoke.py "áo thun nam" 10
 
 This spends a little Apify credit (it is a real scraper run). It prints only counts and a
-few product names; the token is never printed. The CSV is saved to the project-root exports/ folder.
+few product names; the token is never printed. The CSV is saved to the project data/exports/ folder.
 """
 import sys
 from pathlib import Path

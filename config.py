@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DEMO_FILE = BASE_DIR / "data" / "demo_products.json"
 EXPORT_DIR = BASE_DIR / "data" / "exports"
 
-# -------------------------d-------------------------------------- data sources
+# ---------------------------------------------------------------- data sources
 SOURCE_LIVE = "live_apify"   # value written to the data_source column
 SOURCE_DEMO = "demo"
 
@@ -96,3 +96,73 @@ CSV_ENCODING = "utf-8-sig"
 FILENAME_PREFIX = "shopee_products"
 FILENAME_TIME_FORMAT = "%Y%m%d_%H%M%S"
 PRESENTATION_PAUSE_SECS = 0.7
+
+
+# ------------------------------------------------------------------ review workflow
+# On-demand Live review source; a user must explicitly confirm each uncached Actor run.
+REVIEW_CACHE_DIR = BASE_DIR / "data" / "cache" / "reviews"
+REVIEW_CACHE_SCHEMA_VERSION = "2"
+REVIEW_CACHE_TTL_SECONDS = 24 * 60 * 60
+REVIEW_EMPTY_CACHE_TTL_SECONDS = 30 * 60
+REVIEW_COUNT_OPTIONS = [5, 10, 20, 50]
+DEFAULT_REVIEW_COUNT = 5
+MAX_REVIEWS_PER_PRODUCT = 100  # Hard UI + validator + pipeline bound; zero is never valid.
+# Memo23 public Free-tier price snapshot (13 Oct 2026). The Actor's start-event
+# billing unit is not fully clear, so UI labels all estimates and the charge cap
+# adds a configurable buffer. Re-check the Actor Pricing tab before a Live fetch.
+MEMO23_REVIEW_ACTOR_ID = "memo23/shopee-reviews-scraper"
+MEMO23_REVIEW_RATE_PER_1000_USD = 3.50
+MEMO23_REVIEW_START_FEE_USD = 0.005
+MEMO23_REVIEW_COST_BUFFER_USD = 0.01
+MAX_REVIEW_RUN_CHARGE_USD = 0.40
+MEMO23_REVIEW_TIMEOUT_SECS = 180
+MEMO23_REVIEW_POLL_SECS = 3
+
+REVIEW_COLUMNS = [
+    "review_id", "product_id", "shop_id", "rating", "comment", "created_at",
+    "purchased_variant", "like_count", "seller_reply", "review_image_count",
+    "review_images", "data_source", "scraped_at",
+]
+REVIEW_ID_COLUMNS = ["review_id", "product_id", "shop_id"]
+REVIEW_TEXT_COLUMNS = ["comment", "purchased_variant", "seller_reply", "review_images"]
+DEFAULT_REVIEW_FIELDS = [column for column in REVIEW_COLUMNS if column != "review_images"]
+
+PRODUCT_FIELD_LABELS = {
+    "product_id": "Product ID",
+    "product_name": "Product Name",
+    "shop_id": "Shop ID",
+    "shop_name": "Shop Name",
+    "shop_location": "Shop Location",
+    "price": "Price",
+    "price_min": "Minimum Price",
+    "price_max": "Maximum Price",
+    "original_price": "Original Price",
+    "discount_pct": "Discount %",
+    "sold": "Sold",
+    "rating": "Rating",
+    "image_url": "Image URL",
+    "product_url": "Product URL",
+    "category": "Category",
+    "is_official_shop": "Official Shop",
+    "is_shopee_verified": "Shopee Verified",
+    "keyword": "Keyword",
+    "crawl_time": "Crawl Time",
+    "data_source": "Data Source",
+}
+PREVIOUS_PRODUCT_FIELDS = [column for _, column in DISPLAY_COLUMNS]
+REVIEW_FIELD_LABELS = {
+    "review_id": "Review ID",
+    "product_id": "Product ID",
+    "shop_id": "Shop ID",
+    "rating": "Rating",
+    "comment": "Comment",
+    "created_at": "Created At (UTC)",
+    "purchased_variant": "Purchased Variant",
+    "like_count": "Like Count",
+    "seller_reply": "Seller Reply",
+    "review_image_count": "Review Image Count",
+    "review_images": "Review Image URLs (optional)",
+    "data_source": "Review Data Source",
+    "scraped_at": "Collected At (UTC)",
+}
+REVIEW_EXPORT_PREFIX = "shopee_reviews"
