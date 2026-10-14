@@ -48,9 +48,18 @@ APIFY_TOKEN_ENV = "APIFY_API_TOKEN"
 APIFY_ACTOR_ID = "xtracto/shopee-scraper"
 APIFY_COUNTRY = "vn"
 APIFY_MODE = "keyword"
-APIFY_FETCH_DETAIL = True    # real run showed detail gives sold, shop.name, location, ...
+APIFY_FETCH_DETAIL = True    # Backward-compatible default: Enriched mode.
+# Live crawl modes exposed in the UI. Fast uses basic search output; Enriched uses
+# additional detail requests and is slower. Product schema remains unchanged.
+CRAWL_MODE_FAST = "Fast — faster, fewer details"
+CRAWL_MODE_ENRICHED = "Enriched — more details, slower"
+CRAWL_MODE_OPTIONS = [CRAWL_MODE_FAST, CRAWL_MODE_ENRICHED]
+DEFAULT_CRAWL_MODE = CRAWL_MODE_ENRICHED
 APIFY_DELAY_SECONDS = 1      # Actor `delay` (0-10): pause between its own requests
-FETCH_BUFFER_RATIO = 1.2     # ask for 20% extra to leave room for duplicates
+FETCH_BUFFER_RATIO = 1.2     # ask for 20% extra to leave room for duplicates in Fast mode
+FAST_FETCH_BUFFER_RATIO = FETCH_BUFFER_RATIO
+ENRICHED_FETCH_BUFFER_RATIO = 1.0  # skip the buffer to keep the detail run shorter
+ENRICHED_RECOMMENDED_MAX_PRODUCTS = 20
 APIFY_TIMEOUT_SECS = 300     # hard limit for the whole run; the run is aborted after this
 APIFY_POLL_SECS = 5          # how often we check the run status (and update the UI)
 APIFY_MAX_RETRIES = 3        # HTTP retries inside apify-client (default is higher)

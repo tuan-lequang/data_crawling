@@ -6,7 +6,8 @@ import pytest
 pytest.importorskip("streamlit.testing.v1")
 from streamlit.testing.v1 import AppTest
 
-from config import STANDARD_COLUMNS, UI_SOURCE_DEMO, UI_SOURCE_LIVE
+from config import (CRAWL_MODE_ENRICHED, CRAWL_MODE_FAST, CRAWL_MODE_OPTIONS,
+                    STANDARD_COLUMNS, UI_SOURCE_DEMO, UI_SOURCE_LIVE)
 
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 
@@ -185,3 +186,24 @@ def test_live_review_provider_is_real_provider_and_does_not_fallback_to_demo():
     from crawler.apify_reviews import Memo23ShopeeReviewProvider
     assert isinstance(get_review_provider("live_apify"), Memo23ShopeeReviewProvider)
     assert get_review_provider("demo").data_source == "demo_synthetic"
+
+
+def test_live_crawl_modes_are_visible_and_enriched_is_default(app):
+    mode = widget(app.selectbox, "crawl_mode_choice")
+    assert list(mode.options) == CRAWL_MODE_OPTIONS
+    assert mode.value == CRAWL_MODE_ENRICHED
+
+
+def test_fast_mode_explains_possible_missing_metadata(app):
+    widget(app.selectbox, "data_source_choice").set_value(UI_SOURCE_LIVE)
+    widget(app.selectbox, "crawl_mode_choice").set_value(CRAWL_MODE_FAST).run()
+    assert not app.exception
+    assert any("fetchDetail=False" in item.value and "may be empty" in item.value for item in app.info)
+
+
+def test_enriched_large_batch_shows_timeout_warning(app):
+    widget(app.selectbox, "data_source_choice").set_value(UI_SOURCE_LIVE)
+    widget(app.selectbox, "product_count_choice").set_value("50")
+    widget(app.selectbox, "crawl_mode_choice").set_value(CRAWL_MODE_ENRICHED).run()
+    assert not app.exception
+    assert any("may exceed the 300-second timeout" in item.value for item in app.warning)

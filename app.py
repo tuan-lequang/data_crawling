@@ -10,6 +10,9 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from config import (
+    CRAWL_MODE_ENRICHED, CRAWL_MODE_FAST, CRAWL_MODE_OPTIONS, DEFAULT_CRAWL_MODE,
+    ENRICHED_FETCH_BUFFER_RATIO, ENRICHED_RECOMMENDED_MAX_PRODUCTS,
+    FAST_FETCH_BUFFER_RATIO, APIFY_TIMEOUT_SECS,
     DEFAULT_PRODUCT_COUNT, DEFAULT_REVIEW_COUNT, DEFAULT_REVIEW_FIELDS,
     DISPLAY_COLUMNS, EXPORT_DIR, MAX_PRODUCTS, MAX_REVIEWS_PER_PRODUCT,
     PREVIOUS_PRODUCT_FIELDS, PRODUCT_COUNT_OPTIONS, PRODUCT_FIELD_LABELS,
@@ -207,7 +210,12 @@ def render_result(
     excel_message: str | None,
 ) -> None:
     if result.data_source == SOURCE_LIVE:
-        st.success("🟢 LIVE — Shopee via Apify")
+        crawl_mode = st.session_state.get("result_crawl_mode", DEFAULT_CRAWL_MODE)
+        st.success(f"🟢 LIVE — Shopee via Apify · {crawl_mode.split(' — ')[0]} mode")
+        if crawl_mode == CRAWL_MODE_FAST:
+            st.caption("Fast mode: fetchDetail=False. Basic product data is prioritized; some metadata fields may be empty.")
+        else:
+            st.caption("Enriched mode: fetchDetail=True. More metadata is requested, so Live collection can take longer.")
     else:
         st.info("🧪 DEMO DATASET — not live Shopee data. Records are synthetic samples.")
 
@@ -293,12 +301,24 @@ def render_result(
 
 
 def run_and_store(
-    source: str, keyword: str, limit: int, sort: str, pause: bool,
+    source: str, keyword: str, limit: int, sort: str, crawl_mode: str, pause: bool,
     export_csv_selected: bool, export_excel_selected: bool,
     selected_product_fields: list[str], review_enabled: bool,
     review_limit: int, selected_review_fields: list[str],
 ) -> None:
-    provider = ApifyShopeeProvider() if source == UI_SOURCE_LIVE else DemoProvider()
+    if source == UI_SOURCE_LIVE:
+        if crawl_mode == CRAWL_MODE_FAST:
+            provider = ApifyShopeeProvider(
+                fetch_detail=False,
+                buffer_ratio=FAST_FETCH_BUFFER_RATIO,
+            )
+        else:
+            provider = ApifyShopeeProvider(
+                fetch_detail=True,
+                buffer_ratio=ENRICHED_FETCH_BUFFER_RATIO,
+            )
+    else:
+        provider = DemoProvider()
     error_message = None
     with st.status("Running data pipeline...", expanded=True) as status:
         live_line = None
@@ -329,7 +349,7 @@ def run_and_store(
 
     if error_message:
         for key in ("result", "result_product_fields", "result_review_fields", "result_review_enabled",
-                    "result_review_count", "result_export_formats", "review_target", "active_review_result",
+                    "result_review_count", "result_export_formats", "result_crawl_mode", "review_target", "active_review_result",
                     "active_review_exports"):
             st.session_state.pop(key, None)
         st.session_state["current_view"] = "products"
@@ -369,6 +389,7 @@ def run_and_store(
     st.session_state["result_review_enabled"] = bool(review_enabled)
     st.session_state["result_review_count"] = int(review_limit)
     st.session_state["result_export_formats"] = {"csv": bool(export_csv_selected), "excel": bool(export_excel_selected)}
+    st.session_state["result_crawl_mode"] = crawl_mode
     st.session_state["current_view"] = "products"
     st.session_state.pop("review_target", None)
     st.session_state.pop("active_review_result", None)
@@ -688,6 +709,44 @@ def main() -> None:
     sort_label = col_sort.selectbox("Sort By", list(SORT_OPTIONS), key="sort_choice")
     source = col_source.selectbox("Data Source", [UI_SOURCE_DEMO, UI_SOURCE_LIVE], key="data_source_choice")
 
+    crawl_mode = st.selectbox(
+        "Live crawl mode",
+        CRAWL_MODE_OPTIONS,
+        index=CRAWL_MODE_OPTIONS.index(DEFAULT_CRAWL_MODE),
+        key="crawl_mode_choice",
+        help="Fast fetches basic search records with fewer detail requests. Enriched requests additional product details and can take much longer.",
+    )
+    if source == UI_SOURCE_LIVE:
+        if crawl_mode == CRAWL_MODE_FAST:
+            st.info(
+                "⚡ Fast mode: uses fetchDetail=False and requests about 20% extra products to allow for duplicates. "
+                "It is quicker, but sold, shop details, category and verification fields may be empty. "
+                "The standard 20-column schema is preserved."
+            )
+            if limit > 40:
+                st.warning(
+                    "Large Fast searches may still return fewer products than requested because the Actor can limit results per search. "
+                    "Actual counts are reported; data is never padded."
+                )
+        else:
+            st.caption(
+                "🐢 Enriched mode: uses fetchDetail=True and disables the extra-product buffer to reduce runtime. "
+                "Because duplicates and malformed records are still removed, the final count can be lower than requested."
+            )
+            if limit > ENRICHED_RECOMMENDED_MAX_PRODUCTS:
+                st.warning(
+                    f"⚠ Enriched mode is recommended for at most {ENRICHED_RECOMMENDED_MAX_PRODUCTS} products. "
+                    f"You selected {limit}; the run may exceed the {APIFY_TIMEOUT_SECS}-second timeout. "
+                    "Choose Fast mode or reduce the count to lower timeout risk."
+                )
+            elif limit >= 15:
+                st.info(
+                    "Enriched mode may take several minutes near this product count. "
+                    "If speed matters more than shop/category metadata, choose Fast mode."
+                )
+    else:
+        st.caption("Crawl mode settings affect Live Apify requests only. Demo mode is local and offline.")
+
     st.markdown("**Export format**")
     export_col1, export_col2 = st.columns(2)
     export_csv_selected = export_col1.checkbox("CSV", value=True, key="export_csv")
@@ -714,7 +773,7 @@ def main() -> None:
             st.error(f"❌ {validation_error}")
         else:
             run_and_store(
-                source, keyword, limit, SORT_OPTIONS[sort_label], pause,
+                source, keyword, limit, SORT_OPTIONS[sort_label], crawl_mode, pause,
                 export_csv_selected, export_excel_selected, selected_product_fields,
                 review_enabled, review_limit, selected_review_fields,
             )

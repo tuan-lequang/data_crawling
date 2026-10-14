@@ -96,3 +96,37 @@ def test_record_without_item_id_is_still_valid(records):
     del raw["item_id"]
     rec = parse(raw)
     assert rec is not None and rec["product_id"] is None
+
+
+def test_fast_mode_flat_record_schema_is_supported():
+    raw = {
+        "item_id": "99001122",
+        "name": "Điện thoại mẫu",
+        "shop_id": "880077",
+        "shop_name": "Shop Demo",
+        "location": "Hồ Chí Minh",
+        "price": 455000,
+        "original_price": 535000,
+        "discount_pct": 15,
+        "sold_count": 140,
+        "rating": 4.8,
+        "image_url": "https://example.test/phone.jpg",
+        "url": "https://shopee.vn/example-product",
+        "is_official_shop": False,
+        "is_shopee_verified": True,
+    }
+    rec = parse(raw)
+    assert list(rec) == STANDARD_COLUMNS
+    assert rec["product_id"] == "99001122"
+    assert rec["product_name"] == "Điện thoại mẫu"
+    assert rec["shop_name"] == "Shop Demo"
+    assert rec["shop_location"] == "Hồ Chí Minh"
+    assert rec["original_price"] == 535000
+    assert rec["sold"] == 140
+    assert rec["rating"] == 4.8
+    assert rec["image_url"] == raw["image_url"]
+    assert rec["product_url"] == raw["url"]
+    assert rec["is_shopee_verified"] is True
+    # The Actor didn't provide details such as categories or price range; do not invent them.
+    assert rec["category"] is None
+    assert rec["price_min"] is None and rec["price_max"] is None

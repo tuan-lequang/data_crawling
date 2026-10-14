@@ -79,6 +79,34 @@ def test_max_products_has_buffer_and_cap():
     assert build_run_input("x", 500, "relevancy")["maxProducts"] == 500      # Actor maximum
 
 
+def test_fast_mode_disables_detail_and_keeps_duplicate_buffer():
+    run_input = build_run_input("điện thoại", 20, "relevancy", fetch_detail=False, buffer_ratio=1.2)
+    assert run_input["fetchDetail"] is False
+    assert run_input["maxProducts"] == 24
+
+
+def test_enriched_mode_keeps_detail_and_skips_extra_buffer():
+    run_input = build_run_input("điện thoại", 20, "relevancy", fetch_detail=True, buffer_ratio=1.0)
+    assert run_input["fetchDetail"] is True
+    assert run_input["maxProducts"] == 20
+
+
+def test_fetch_detail_mode_is_applied_by_provider(records):
+    fast_client = FakeClient(items=many(records, 2))
+    fast = ApifyShopeeProvider(token=TOKEN, client_factory=fast_client.factory(),
+                               clock=fast_client.clock, fetch_detail=False, buffer_ratio=1.2)
+    fast.fetch("điện thoại", 10, "relevancy")
+    assert fast_client.run_input["fetchDetail"] is False
+    assert fast_client.run_input["maxProducts"] == 12
+
+    enriched_client = FakeClient(items=many(records, 2))
+    enriched = ApifyShopeeProvider(token=TOKEN, client_factory=enriched_client.factory(),
+                                   clock=enriched_client.clock, fetch_detail=True, buffer_ratio=1.0)
+    enriched.fetch("điện thoại", 10, "relevancy")
+    assert enriched_client.run_input["fetchDetail"] is True
+    assert enriched_client.run_input["maxProducts"] == 10
+
+
 def test_fetch_uses_the_right_actor_and_returns_items(records):    # test 2 (mocked)
     client = FakeClient(items=many(records, 5))
     status = []

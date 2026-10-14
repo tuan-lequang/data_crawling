@@ -47,16 +47,26 @@ def _field(obj: Any, name: str):
     return obj.get(name) if isinstance(obj, dict) else getattr(obj, name, None)
 
 
-def build_run_input(keyword: str, limit: int, sort: str) -> dict:
-    """Input for the Actor. Field names follow the Actor's published input schema."""
-    max_products = min(math.ceil(limit * FETCH_BUFFER_RATIO), MAX_PRODUCTS)
+def build_run_input(keyword: str, limit: int, sort: str, *,
+                    fetch_detail: bool | None = None,
+                    buffer_ratio: float | None = None) -> dict:
+    """Build Actor input for Fast or Enriched mode.
+
+    Defaults preserve the previous product-crawler behavior for scripts and callers
+    that do not specify a mode.
+    """
+    detail = APIFY_FETCH_DETAIL if fetch_detail is None else bool(fetch_detail)
+    ratio = FETCH_BUFFER_RATIO if buffer_ratio is None else float(buffer_ratio)
+    if ratio < 1.0:
+        raise ValueError("buffer_ratio must be at least 1.0")
+    max_products = min(math.ceil(limit * ratio), MAX_PRODUCTS)
     return {
         "country": APIFY_COUNTRY,
         "mode": APIFY_MODE,
         "keyword": keyword,
         "sort": ACTOR_SORT_MAP.get(sort, "relevancy"),
         "maxProducts": max_products,
-        "fetchDetail": APIFY_FETCH_DETAIL,
+        "fetchDetail": detail,
         "delay": APIFY_DELAY_SECONDS,
     }
 
@@ -87,12 +97,16 @@ class ApifyShopeeProvider(BaseProvider):
                  client_factory: Callable[[str], Any] = _default_client_factory,
                  timeout_secs: int = APIFY_TIMEOUT_SECS,
                  poll_secs: int = APIFY_POLL_SECS,
-                 clock: Callable[[], float] = time.monotonic):
+                 clock: Callable[[], float] = time.monotonic,
+                 fetch_detail: bool | None = None,
+                 buffer_ratio: float | None = None):
         self._token = token
         self._client_factory = client_factory
         self._timeout = timeout_secs
         self._poll = poll_secs
         self._clock = clock
+        self._fetch_detail = APIFY_FETCH_DETAIL if fetch_detail is None else bool(fetch_detail)
+        self._buffer_ratio = FETCH_BUFFER_RATIO if buffer_ratio is None else float(buffer_ratio)
 
     # -- configuration -----------------------------------------------------------------
     def _get_token(self) -> str:
@@ -115,7 +129,12 @@ class ApifyShopeeProvider(BaseProvider):
         say = on_status or (lambda _msg: None)
         try:
             client = self._client_factory(token)
-            return self._run_actor(client, build_run_input(keyword, limit, sort), say)
+            return self._run_actor(
+                client,
+                build_run_input(keyword, limit, sort, fetch_detail=self._fetch_detail,
+                                buffer_ratio=self._buffer_ratio),
+                say,
+            )
         except ProviderError:
             raise
         except Exception as exc:           # translate anything else into a readable message

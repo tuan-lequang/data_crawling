@@ -138,10 +138,15 @@ It runs the real pipeline for 10 products, prints counts and a few rows, and sav
 
 ### How the Apify integration works
 
-- The app starts the Actor `xtracto/shopee-scraper` with: `country=vn`, `mode=keyword`, your keyword, a `sort`, `maxProducts` (your number + 20% buffer for duplicates), `fetchDetail=true`, `delay=1`.
-- It polls the run status every 5 seconds (the UI shows the real elapsed time), then reads the run's dataset.
-- If the run exceeds 300 seconds it is **aborted** so it stops using credits.
-- `fetchDetail=true` is on because the detailed output contains the fields we need (`sold`, `shop.name`, `shop.location`, `categories`, shop verification).
+The UI offers two Live crawl modes (the setting is ignored for Demo data):
+
+- **Fast — faster, fewer details:** sends `fetchDetail=false` and requests about 20% extra products (up to the Actor's configured maximum) to allow for duplicates. This reduces detail-request work, but fields such as sold count, shop name/location, category and verification may be empty if the basic search response does not include them. Above 40 requested products the UI warns that the Actor may return fewer results or take longer.
+- **Enriched — more details, slower:** sends `fetchDetail=true` and does not request the extra-product buffer, to reduce the number of per-product detail requests. It is recommended for up to 20 products; above that, the UI warns that the run may exceed the current 300-second timeout. At 15–20 products the UI shows a caution because runtime can approach the timeout.
+
+Both modes return the same 20-column standard schema. A field not returned by the Actor remains empty; no value is invented. The parser supports the flat aliases used by basic mode (such as `name`, `original_price`, `sold_count`, `rating`, and `image_url`) as well as the nested/detail shape returned by Enriched mode.
+
+- The app polls the run status every 5 seconds (the UI shows real elapsed time), then reads the run's dataset.
+- The current product provider uses a 300-second hard timeout and attempts to abort the Actor if the run exceeds it.
 - Sort mapping: Relevancy → `relevancy`, Best selling → `sales`, Price ↑/↓ → `price_asc`/`price_desc`. The Actor has **no "top rated" sort**, so for *Top rated* the app fetches by relevancy and sorts the fetched products locally.
 
 ## 6. Data schema (20 columns, also the CSV columns)
@@ -226,7 +231,7 @@ The suite uses mocks, so it needs no token, no internet and costs nothing. It co
 3. Demonstrate **Product output fields** using All 20, Previous table view, and Custom. Explain that hidden IDs stay in the internal data for linking.
 4. Choose **CSV**, **Excel**, or **both** and download the output from `data/exports/` or the browser buttons.
 5. Enable **Review settings**, select a small count such as 5, and open **View reviews** for a Demo product. Make clear these reviews are synthetic, not actual Shopee comments. Show the review table, Back navigation and separate review export.
-6. If needed, switch to **Live Shopee via Apify** for the existing product crawl with a small request (10–20 products). For reviews on a Live product, review results are fetched only after a separate confirmation button and a per-run charge cap is sent to Apify.
+6. If needed, switch to **Live Shopee via Apify** for the existing product crawl. Use **Fast** for larger batches or when speed matters; use **Enriched** for up to 20 products when shop/category metadata matters. For reviews on a Live product, review results are fetched only after a separate confirmation button and a per-run charge cap is sent to Apify.
 7. Keep a CSV from an earlier live product run as a backup in case the network fails.
 
 Why Demo exists: *"Live scraping depends on an external service, so the Demo Dataset guarantees the processing and export pipeline can still be demonstrated."*
