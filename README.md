@@ -224,19 +224,6 @@ The suite uses mocks, so it needs no token, no internet and costs nothing. It co
 - Prices are rounded to whole VND.
 - Demo data is synthetic and says so everywhere.
 
-## 12. Presentation workflow
-
-1. Start with **Demo Dataset**, keyword `giày sneaker nam`, 50 products → *Start Crawling*.
-2. Point at the stage list, then the metrics (fetched → valid → duplicates removed → final).
-3. Demonstrate **Product output fields** using All 20, Previous table view, and Custom. Explain that hidden IDs stay in the internal data for linking.
-4. Choose **CSV**, **Excel**, or **both** and download the output from `data/exports/` or the browser buttons.
-5. Enable **Review settings**, select a small count such as 5, and open **View reviews** for a Demo product. Make clear these reviews are synthetic, not actual Shopee comments. Show the review table, Back navigation and separate review export.
-6. If needed, switch to **Live Shopee via Apify** for the existing product crawl. Use **Fast** for larger batches or when speed matters; use **Enriched** for up to 20 products when shop/category metadata matters. For reviews on a Live product, review results are fetched only after a separate confirmation button and a per-run charge cap is sent to Apify.
-7. Keep a CSV from an earlier live product run as a backup in case the network fails.
-
-Why Demo exists: *"Live scraping depends on an external service, so the Demo Dataset guarantees the processing and export pipeline can still be demonstrated."*
-
-
 ## 13. Product field selection
 
 Before starting a crawl, expand **Product output fields**. By default, all 20 standard fields are selected. The presets include **All 20 (default)**, **Previous table view** (the previous 11-column preview), and **Custom**. Individual field checkboxes and Select All update immediately. The selected fields control the product table and CSV/Excel exports, while the internal `PipelineResult.df` retains all 20 columns for joins, deduplication and review navigation. The crawl is blocked if no product field is selected.
