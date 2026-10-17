@@ -1,258 +1,226 @@
-# 🛒 Shopee Product Data Crawler
+# Shopee Crawler — Thu thập và xử lý dữ liệu sản phẩm
 
-A small Streamlit app that demonstrates a complete data pipeline:
+Shopee Crawler là ứng dụng Python có giao diện Streamlit, hỗ trợ thu thập dữ liệu sản phẩm theo từ khóa, chuẩn hóa dữ liệu, loại bản ghi trùng, hiển thị kết quả và xuất CSV/Excel. Dự án có thêm trang **Review Explorer** để minh họa luồng xem và xuất dữ liệu đánh giá.
 
+> **Khuyến nghị khi chấm/demo:** chọn **Demo Dataset** trước. Dữ liệu Demo được tạo sẵn và gắn nhãn rõ ràng; chạy được ngoại tuyến, không cần API token và không gọi Actor có tính phí.
+
+## 1. Chức năng chính
+
+- **Hai nguồn dữ liệu sản phẩm:**
+  - **Demo Dataset:** 500 bản ghi tổng hợp nằm tại `data/demo_products.json`; đây không phải dữ liệu sản phẩm thật đang được lấy trực tiếp từ Shopee.
+  - **Live Shopee via Apify:** gọi Actor bên thứ ba `xtracto/shopee-scraper`; cần cấu hình token Apify, kết nối mạng và có thể sử dụng credit.
+- **Hai chế độ lấy sản phẩm Live:**
+  - **Fast:** ưu tiên tốc độ và giảm yêu cầu lấy thông tin chi tiết; một số trường có thể trống.
+  - **Enriched:** yêu cầu thêm thông tin chi tiết, thường chậm hơn; nên thử với số lượng nhỏ (khoảng 20 sản phẩm trở xuống).
+- **Pipeline xử lý dữ liệu:** kiểm tra đầu vào, lấy dữ liệu, parse về cấu trúc thống nhất, làm sạch, loại trùng, sắp xếp và giới hạn số bản ghi.
+- **Tùy chỉnh trường xuất:** chọn toàn bộ 20 trường, dùng bộ trường của bảng cũ hoặc tự chọn từng trường.
+- **Xuất dữ liệu:** tải CSV, Excel (.xlsx), hoặc cả hai. File được lưu vào `data/exports/` và đồng thời có nút tải xuống trên giao diện.
+- **Review Explorer:** dữ liệu review Demo là dữ liệu tổng hợp; review Live sử dụng Actor bên thứ ba `memo23/shopee-reviews-scraper` khi người dùng chủ động xác nhận và bấm Fetch. Yêu cầu Live có thể phát sinh chi phí và kết quả có thể không đầy đủ.
+- **Xử lý review:** chuẩn hóa, loại trùng, cache cục bộ và thử che một số mẫu thông tin nhạy cảm trong nội dung văn bản trước khi lưu/hiển thị/xuất. Cơ chế che dữ liệu là biện pháp giảm rủi ro, không bảo đảm ẩn danh tuyệt đối.
+
+## 2. Kiến trúc và luồng xử lý
+
+```text
+Người dùng nhập từ khóa, số lượng, kiểu sắp xếp và nguồn dữ liệu
+                         │
+                         ▼
+                 Giao diện Streamlit
+                         │
+                         ▼
+          Provider: Demo Dataset hoặc Live/Apify
+                         │
+                         ▼
+                   Dữ liệu thô
+                         │
+                         ▼
+         Parser → Cleaning → Loại bản ghi trùng
+                         │
+                         ▼
+               Sắp xếp và giới hạn số dòng
+                         │
+                         ▼
+                  Pandas DataFrame
+                         │
+                ┌────────┴────────┐
+                ▼                 ▼
+          Bảng kết quả        CSV / Excel
 ```
-keyword → collect product data → parse → clean → remove duplicates → DataFrame → CSV/Excel
+
+Điểm quan trọng của thiết kế là hai nguồn sản phẩm dùng chung các bước xử lý sau khi lấy dữ liệu. Vì vậy, Demo có thể dùng để trình bày và kiểm thử pipeline mà không phải gọi dịch vụ bên ngoài.
+
+## 3. Công nghệ và cấu trúc thư mục
+
+**Công nghệ chính:** Python, Streamlit, Pandas, python-dotenv, Apify Client, openpyxl và pytest.
+
+```text
+shopee-crawler/
+├── app.py                    # Giao diện Streamlit
+├── config.py                 # Hằng số, giới hạn và schema
+├── pipeline.py               # Pipeline xử lý sản phẩm
+├── review_pipeline.py        # Pipeline xử lý review
+├── crawler/                  # Provider, parser và tích hợp Apify
+├── utils/                    # Làm sạch, validate, cache và xuất file
+├── data/
+│   ├── demo_products.json    # 500 bản ghi Demo tổng hợp
+│   └── exports/              # CSV/XLSX được sinh ra khi chạy
+├── scripts/                  # Tiện ích tạo Demo và smoke test Live
+├── tests/                    # Kiểm thử tự động
+├── .env.example              # Mẫu cấu hình token, không chứa token thật
+├── requirements.txt          # Thư viện phụ thuộc
+└── README.md
 ```
 
-It runs in **two clearly separated modes**:
+## 4. Yêu cầu trước khi cài đặt
 
-| Mode | Where the data comes from | Needs internet / token? |
-|------|---------------------------|-------------------------|
-| **Demo Dataset** (default) | `data/demo_products.json` — 500 **synthetic** records shaped like the real Shopee Vietnam output | No |
-| **Live Shopee via Apify** | Real Shopee Vietnam products, collected by the Apify Actor `xtracto/shopee-scraper` | Yes (Apify API token) |
+- Python **3.10 trở lên**.
+- Máy có quyền cài thư viện Python.
+- Trình duyệt web hiện đại để mở giao diện Streamlit.
+- **Chỉ cần Apify token nếu có nhu cầu thử chế độ Live.** Chạy Demo không yêu cầu token hoặc Internet.
 
-The UI always shows which one you are looking at: `🟢 LIVE — Shopee via Apify` or `🧪 DEMO DATASET — not live Shopee data`. The CSV has a `data_source` column (`live_apify` or `demo`) so the two can never be confused.
+## 5. Cài đặt và chạy trên Windows
+
+### Bước 1 — Mở đúng thư mục dự án
+
+Mở VS Code/Terminal tại thư mục chứa trực tiếp `app.py` và `requirements.txt`.
+
+### Bước 2 — Tạo môi trường Python riêng
+
+```powershell
+python -m venv .venv
+```
+
+### Bước 3 — Cài thư viện
+
+Có thể gọi Python trong môi trường ảo trực tiếp, không cần kích hoạt môi trường trước:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### Bước 4 — Chạy kiểm thử (khuyến nghị)
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Lệnh này chạy bộ test tự động. Kết quả cần được ghi nhận theo lần chạy thực tế trên máy sử dụng; không nên dùng lại số liệu từ một lần chạy trước đó.
+
+### Bước 5 — Khởi động ứng dụng
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Mở địa chỉ được Streamlit hiển thị trong Terminal, thường là `http://localhost:8501`. Để dừng ứng dụng, nhấn `Ctrl+C` trong Terminal.
+
+## 6. Chạy trên macOS/Linux
+
+Trong Terminal ở thư mục chứa `app.py`:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pytest -q
+python -m streamlit run app.py
+```
+
+Sau khi chạy, mở địa chỉ Streamlit thông báo trên Terminal, thường là `http://localhost:8501`.
+
+## 7. Chạy thử Demo Dataset (không cần token)
+
+1. Khởi động ứng dụng theo hướng dẫn ở trên.
+2. Trong **Data Source**, chọn **Demo Dataset**.
+3. Nhập thử một từ khóa, ví dụ `giày sneaker nam`, rồi chọn số lượng sản phẩm.
+4. Có thể thử chế độ sắp xếp, phần **Product output fields**, và chọn CSV, Excel hoặc cả hai.
+5. Bấm nút bắt đầu crawl. Quan sát các bước xử lý và các chỉ số như số bản ghi nhận được, số bản ghi hợp lệ, số bản ghi trùng bị loại và số bản ghi cuối cùng.
+6. Tải file qua nút Download hoặc mở thư mục `data/exports/` trong dự án.
+7. Nếu bật **Review settings**, mở trang review của một sản phẩm Demo để xem ví dụ review tổng hợp. Những review này không phải lời nhận xét thật từ khách hàng Shopee.
+
+Có thể thử thêm: `áo thun nam`, `balo laptop`, `tai nghe bluetooth`, `chuột không dây` hoặc `bàn phím cơ`. Dữ liệu Demo có chủ đích chứa một số giá trị thiếu, định dạng số khác nhau và bản ghi trùng để minh họa chức năng làm sạch.
+
+## 8. Cấu hình chế độ Live (tùy chọn)
+
+Chỉ thực hiện phần này khi đã xác nhận mình có quyền sử dụng nguồn dữ liệu đó và chấp nhận việc gọi dịch vụ bên thứ ba có thể phát sinh chi phí.
+
+1. Sao chép `.env.example` thành `.env` ngay cạnh `app.py`.
+   - PowerShell: `Copy-Item .env.example .env`
+   - macOS/Linux: `cp .env.example .env`
+2. Mở `.env` và điền token Apify do chính bạn quản lý:
+
+   ```dotenv
+   APIFY_API_TOKEN=YOUR_APIFY_API_TOKEN
+   ```
+
+3. Lưu file và khởi động lại ứng dụng. Token được đọc từ biến môi trường; ứng dụng không nên hiển thị chính giá trị token trên giao diện.
+4. Chọn **Live Shopee via Apify** nếu cần thử crawl sản phẩm. Fast phù hợp hơn khi ưu tiên tốc độ; Enriched dùng nhiều thao tác lấy chi tiết hơn và có thể mất nhiều thời gian.
+5. Với Live reviews, đọc phần thông báo chi phí và phạm vi dữ liệu trên giao diện trước khi xác nhận. Chỉ bấm Fetch khi đã kiểm tra giá hiện hành của Actor và chấp nhận giới hạn chi phí hiển thị.
+
+**Bảo mật token:** không đưa `.env` vào GitHub, không gửi token trong ảnh chụp màn hình, video demo, báo cáo hoặc tin nhắn. `.env` đã được liệt kê trong `.gitignore`; chỉ chia sẻ `.env.example` đã bỏ trống token.
+
+> **Lưu ý về quyền sử dụng dữ liệu:** Apify và các Actor nêu trên là dịch vụ bên thứ ba, không phải API chính thức của Shopee. Việc sử dụng Actor không tự tạo ra quyền thu thập dữ liệu. Trước khi chạy Live, hãy kiểm tra điều khoản nền tảng đang áp dụng và bảo đảm đã có cơ sở/ủy quyền phù hợp. Nếu không chắc chắn, hãy dùng Demo Dataset để nộp bài và trình diễn.
+
+### Chi phí và giới hạn Live
+
+- Chạy Demo không gọi Actor và không phát sinh phí Apify.
+- Crawl sản phẩm Live và lấy review Live có thể sử dụng credit; giá, thời gian chạy và số bản ghi thực tế phụ thuộc dịch vụ/Actor và thời điểm sử dụng.
+- Ước tính trong ứng dụng không phải báo giá đảm bảo. Hãy đọc trang Pricing hiện hành của Actor và kiểm tra tài khoản trước khi xác nhận.
+- Review Live đọc nguồn review ở cấp shop rồi lọc theo sản phẩm, vì vậy mức độ bao phủ có thể một phần và thứ tự không được bảo đảm là mới nhất.
+- Trường không có trong nguồn sẽ để trống; ứng dụng không tự bịa dữ liệu để đủ số lượng yêu cầu.
+
+## 9. Dữ liệu đầu ra
+
+### Sản phẩm — 20 trường chuẩn
+
+`product_id`, `product_name`, `shop_id`, `shop_name`, `shop_location`, `price`, `price_min`, `price_max`, `original_price`, `discount_pct`, `sold`, `rating`, `image_url`, `product_url`, `category`, `is_official_shop`, `is_shopee_verified`, `keyword`, `crawl_time`, `data_source`.
+
+Tất cả dữ liệu sản phẩm được chuẩn hóa theo schema chung. Giá được lưu theo đơn vị VND; ID được giữ dưới dạng văn bản khi xuất Excel để giảm nguy cơ bị đổi thành dạng khoa học. `product_url` hoặc các trường khác có thể để trống nếu nguồn không trả về.
+
+### Review — 13 trường chuẩn
+
+`review_id`, `product_id`, `shop_id`, `rating`, `comment`, `created_at`, `purchased_variant`, `like_count`, `seller_reply`, `review_image_count`, `review_images`, `data_source`, `scraped_at`.
+
+Review được xuất riêng với file sản phẩm. URL ảnh review không được bật mặc định trong danh sách trường xuất. Che thông tin nhạy cảm trong văn bản là **best-effort**, không phải bảo đảm ẩn danh hoàn toàn.
+
+### Vị trí file
+
+- CSV sản phẩm: `data/exports/shopee_products_<thời-điểm>.csv`
+- Excel sản phẩm: `data/exports/shopee_products_<thời-điểm>.xlsx`
+- CSV/Excel review: `data/exports/shopee_reviews_<product_id>_<thời-điểm>.<csv|xlsx>`
+- Cache review cục bộ: `data/cache/reviews/` (được tạo khi cần và nằm ngoài nội dung cần commit).
+
+CSV dùng mã hóa UTF-8 có BOM để tăng khả năng hiển thị tiếng Việt trong Excel. File Excel có sheet dữ liệu, tiêu đề cố định và bộ lọc; các ID dài được ghi dưới dạng text.
+
+## 10. Kiểm thử tự động
+
+Chạy:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Bộ test bao gồm parser, làm sạch, loại trùng, pipeline Demo, xuất CSV/Excel, provider Apify qua fake/mock client và các luồng giao diện. Kiểm thử tự động không phải là bằng chứng rằng dịch vụ Live hoạt động trong tài khoản hiện tại; không cần chạy Actor thật để thực hiện bộ test.
+
+## 11. Giới hạn đã biết
+
+- Demo Dataset là dữ liệu tổng hợp để kiểm tra luồng xử lý, không đại diện cho kết quả thị trường thật.
+- Dữ liệu Live phụ thuộc cấu trúc phản hồi, giới hạn, tính sẵn sàng và chính sách giá của Actor bên thứ ba.
+- Có thể nhận ít bản ghi hợp lệ hơn số lượng đã yêu cầu do dữ liệu nguồn, giới hạn Actor, bản ghi lỗi hoặc trùng lặp.
+- Một số trường như URL sản phẩm, tên shop, danh mục hoặc số lượng đã bán có thể không có trong phản hồi.
+- Sắp xếp “Top rated” được thực hiện trên tập dữ liệu đã lấy về, không phải xếp hạng toàn bộ Shopee.
+- Redaction review có thể bỏ sót dữ liệu cá nhân hoặc che nhầm một chuỗi số hợp lệ.
+
+## 12. Gợi ý demo/thuyết trình
+
+1. Mở ứng dụng với **Demo Dataset** và từ khóa `giày sneaker nam`.
+2. Giải thích các bước của pipeline và những chỉ số sau xử lý.
+3. Minh họa lựa chọn trường dữ liệu: All 20, Previous table view và Custom.
+4. Xuất CSV và Excel, mở file để kiểm tra cột, tiếng Việt và các ID.
+5. Nếu bật Review Explorer, xem review Demo và nói rõ đây là dữ liệu tổng hợp.
+6. Chỉ trình diễn Live khi đã có cơ sở sử dụng phù hợp, token hoạt động và đã chấp nhận chi phí; nên chuẩn bị trước bản xuất mẫu làm phương án dự phòng.
 
 ---
 
-## 1. Architecture and data flow
-
-```
-Streamlit UI (app.py)
-      │  keyword, number of products, sort, data source
-      ▼
-pipeline.run_pipeline()          ← reports real progress to the UI
-      │
-      ├── Provider (one of two, same interface)
-      │     • ApifyShopeeProvider → Apify API → xtracto/shopee-scraper → Shopee Vietnam
-      │     • DemoProvider        → data/demo_products.json
-      ▼   (both return a list of RAW dicts)
-Parser           fixes the SHAPE   raw nested JSON → 20 standard columns
-Cleaning         fixes the VALUES  text/number formats, ranges, whitespace
-Deduplication    by product_id, fallback key if missing
-Sort + trim      to the requested number (never padded)
-      ▼
-Pandas DataFrame → Streamlit table → CSV and/or Excel download
-```
-
-Live architecture in one line:
-`Streamlit → Apify API → xtracto/shopee-scraper → Shopee Vietnam → Raw JSON → Parser → Cleaning → Pandas → CSV/Excel`
-
-Everything after the provider is identical for live and demo data. That is why the demo is a faithful way to show the processing and export steps.
-
-## 2. Folder structure
-
-```
-shopee-crawler/
-├── app.py               Streamlit UI only (no data logic)
-├── pipeline.py          the whole flow in one readable place
-├── config.py            every constant (columns, limits, Actor settings)
-├── crawler/
-│   ├── base.py          product provider interface + errors
-│   ├── apify_shopee.py  existing LIVE product provider (unchanged)
-│   ├── demo_provider.py offline product provider
-│   ├── parser.py        raw product JSON → 20-column schema
-│   ├── review_base.py   review provider interface
-│   ├── review_access.py selects the Demo or Live review provider
-│   ├── apify_reviews.py  on-demand memo23 Live review provider
-│   ├── demo_reviews.py  synthetic offline review provider
-│   └── review_parser.py review records → minimal review schema
-├── utils/
-│   ├── cleaning.py      product value cleaning + de-duplication
-│   ├── csv_exporter.py  product CSV/Excel export + verification
-│   ├── validators.py   input validation
-│   ├── field_selection.py product/review output-field selection
-│   ├── review_cleaning.py review cleaning + de-duplication
-│   ├── pii_redaction.py best-effort free-text redaction
-│   ├── review_cache.py  local cache of normalized, redacted reviews
-│   ├── review_exporter.py separate review CSV/Excel export
-│   └── cost_disclosure.py provider-agnostic cost estimation helpers
-├── review_pipeline.py   review parse/clean/dedupe/cache workflow
-├── data/demo_products.json   500 raw demo products (synthetic)
-├── data/exports/        generated product/review CSV/XLSX files
-├── data/cache/reviews/  runtime cache (ignored by Git)
-├── scripts/
-│   ├── generate_demo.py      rebuilds the demo file (fixed seed → identical output)
-│   └── live_smoke.py         manual REAL product Actor smoke test
-├── tests/               product + review tests and fixtures
-├── .env.example  .gitignore  requirements.txt  pytest.ini  README.md
-```
-
-## 3. Installation
-
-Requires Python 3.10+.
-
-```bash
-python -m venv venv
-```
-
-Windows:
-
-```bash
-venv\Scripts\activate
-```
-
-macOS / Linux:
-
-```bash
-source venv/bin/activate
-```
-
-Then:
-
-```bash
-pip install -r requirements.txt
-```
-
-## 4. Run
-
-```bash
-streamlit run app.py
-```
-
-The browser opens at <http://localhost:8501>. **Demo Dataset works immediately** — no `.env`, no token, no internet.
-
-## 5. Live mode (optional): Apify token
-
-1. Copy `.env.example` to `.env`.
-2. Paste your token: `APIFY_API_TOKEN=your_token_here` (Apify Console → Settings → API & Integrations).
-3. Restart the app. The sidebar shows **Apify token: configured ✅** (the value itself is never displayed).
-
-Environment variables:
-
-| Variable | Purpose |
-|----------|---------|
-| `APIFY_API_TOKEN` | Your Apify API token. Only needed for Live mode. |
-
-`.env` is listed in `.gitignore`. Never commit it, paste it in a chat, or show it on screen.
-
-**Check your setup once before the demo** (spends a small amount of Apify credit):
-
-```bash
-python scripts/live_smoke.py
-```
-
-It runs the real pipeline for 10 products, prints counts and a few rows, and saves a CSV to the `data/exports/` folder.
-
-### How the Apify integration works
-
-The UI offers two Live crawl modes (the setting is ignored for Demo data):
-
-- **Fast — faster, fewer details:** sends `fetchDetail=false` and requests about 20% extra products (up to the Actor's configured maximum) to allow for duplicates. This reduces detail-request work, but fields such as sold count, shop name/location, category and verification may be empty if the basic search response does not include them. Above 40 requested products the UI warns that the Actor may return fewer results or take longer.
-- **Enriched — more details, slower:** sends `fetchDetail=true` and does not request the extra-product buffer, to reduce the number of per-product detail requests. It is recommended for up to 20 products; above that, the UI warns that the run may exceed the current 300-second timeout. At 15–20 products the UI shows a caution because runtime can approach the timeout.
-
-Both modes return the same 20-column standard schema. A field not returned by the Actor remains empty; no value is invented. The parser supports the flat aliases used by basic mode (such as `name`, `original_price`, `sold_count`, `rating`, and `image_url`) as well as the nested/detail shape returned by Enriched mode.
-
-- The app polls the run status every 5 seconds (the UI shows real elapsed time), then reads the run's dataset.
-- The current product provider uses a 300-second hard timeout and attempts to abort the Actor if the run exceeds it.
-- Sort mapping: Relevancy → `relevancy`, Best selling → `sales`, Price ↑/↓ → `price_asc`/`price_desc`. The Actor has **no "top rated" sort**, so for *Top rated* the app fetches by relevancy and sorts the fetched products locally.
-
-## 6. Data schema (20 columns, also the CSV columns)
-
-`product_id, product_name, shop_id, shop_name, shop_location, price, price_min, price_max, original_price, discount_pct, sold, rating, image_url, product_url, category, is_official_shop, is_shopee_verified, keyword, crawl_time, data_source`
-
-| Column | Source field |
-|--------|--------------|
-| product_id | `item_id` |
-| product_name | `title` |
-| shop_id | `shop_id` (falls back to `shop.shopid`) |
-| shop_name / shop_location | `shop.name` / `shop.location` |
-| price, price_min, price_max | `price`, `price_min`, `price_max` (already VND — **not** rescaled) |
-| original_price | `price_before_discount` |
-| discount_pct | `discount_pct` |
-| sold | `sold` |
-| rating | `rating_star` |
-| image_url | `images[0]` (only if it is a URL) |
-| product_url | a URL **only if the record contains one**, otherwise empty |
-| category | first non-empty name in `categories` |
-| is_official_shop / is_shopee_verified | `shop.is_official_shop` / `shop.is_shopee_verified` |
-| keyword, crawl_time, data_source | set by the pipeline |
-
-**Missing data is never invented.** If Shopee/Apify returns `null` for `sold`, the cell is empty. `rating_count` and `total_ratings` are mostly `null` in real output, so they are not exported. Product URLs are never constructed.
-
-## 7. Cleaning and de-duplication rules
-
-- **Price**: `219000`, `"₫199.000"`, `"199,000"`, `"199.000đ"` → `199000`. A range takes the lowest value. `0`, negative or unparseable → empty. Stored as whole VND.
-- **Sold**: `850`, `"1.2K"`, `"1,5K"`, `"Đã bán 2,3k"`, `"1.250"` → integers. `null` stays empty.
-- **Rating**: must be between 0 and 5, otherwise empty. `"4,8"` → `4.8`.
-- **Discount**: number or `"20%"`, between 0 and 100.
-- **Text**: whitespace trimmed, Vietnamese accents preserved.
-- **IDs** are kept as text (long numbers are not safe as floats).
-- **Duplicates**: a record with a `product_id` is a duplicate only if that ID was already seen. A record **without** an ID uses the fallback key `shop_id + normalized product name`. The **first** record is kept; the number removed is shown in the metrics.
-
-The live Apify output is mostly numeric already; the text-format rules are defensive and are exercised by the demo data, which was **deliberately made messy** (duplicates, missing IDs, nulls, text-formatted numbers, malformed records).
-
-## 8. Demo Dataset
-
-`data/demo_products.json` holds 500 raw records in the structure of the real output (`item_id`, `title`, `price`, `price_before_discount`, `sold`, `rating_star`, `images`, `categories`, nested `shop`, …).
-
-- ~316 shoe records (214 match "giày sneaker nam"), plus shirts, backpacks, headphones, mice, keyboards.
-- Fictional brands and shops. Image/product URLs use the reserved `demo.invalid` domain, so none can be mistaken for real Shopee links.
-- Injected problems: 14 duplicate `item_id`s, 4 records without `item_id`, 4 malformed records, null `sold`/`rating`/`rating_count`/`total_ratings`, missing shop names, text-formatted numbers, and `url` present in only ~13% of records (as in the real output).
-- Try keywords: `giày sneaker nam`, `áo thun nam`, `balo laptop`, `tai nghe bluetooth`, `chuột không dây`, `bàn phím cơ`.
-- Demo "Relevancy" means file order, **not** Shopee's ranking. Other sorts are applied locally.
-
-## 9. Export (CSV and/or Excel)
-
-- The UI lets the user choose **CSV**, **Excel (.xlsx)**, or **both**. At least one format must be selected. When a crawl finishes, each selected format is saved to the `data/exports/` folder and is also offered through a browser download button. The browser copy still follows the browser download settings.
-- CSV uses **UTF-8 with BOM (`utf-8-sig`)**. The exporter reads the file back and verifies that all text columns (including keyword, shop name/location, and category) survive unchanged.
-- The app reports text cells containing a literal `?` because those characters may already have replaced Vietnamese letters in the source/input. Encoding cannot recover characters lost before export. For those records, check the raw Apify item/source rather than blindly replacing `?`.
-- CSV file name: `shopee_products_<YYYYMMDD_HHMMSS>.csv`.
-- Excel file name: `shopee_products_<YYYYMMDD_HHMMSS>.xlsx`.
-- Excel contains one `Products` sheet with all 20 standard columns, frozen headers and an autofilter.
-- Long IDs (`product_id`, `shop_id`) are written as **text** in Excel to avoid scientific notation such as `2.2E+10`.
-- Before downloads are offered, the app reads each selected format back and verifies row count, 20-column schema and all text columns.
-
-## 10. Testing
-
-```bash
-python -m pytest
-```
-
-The suite uses mocks, so it needs no token, no internet and costs nothing. It covers the parser (with the real record structure as fixture), all cleaning rules, de-duplication, CSV/Excel export and round-trip verification, the demo pipeline, the Apify provider (missing/invalid token, 401/403/429/5xx, network error, timeout + abort, failed run, empty result), and the Streamlit UI (headless).
-
-## 11. Limitations
-
-- **Live mode depends on a third-party service.** Apify and the `xtracto/shopee-scraper` Actor are not run by Shopee. Output fields, speed, price and availability can change, and scraping Shopee is subject to Shopee's terms. Use it responsibly and for coursework-scale volumes.
-- **You may get fewer products than requested.** One version of the Actor documents a cap of about 40 products per search, so the 100 option may return fewer. The app reports the real number (`Only X valid unique products were available`) and never pads.
-- **Live requests use Apify credits** (`fetchDetail=true` is heavier) and can take a while.
-- **Live path testing**: the live provider is tested with mocks and one real-client failure path; real runs depend on your token. Run `scripts/live_smoke.py` once to confirm.
-- `product_url` is often empty, and `image_url` is filled only if the source gives a full URL.
-- *Top rated* sorts only the products fetched, not all of Shopee.
-- Prices are rounded to whole VND.
-- Demo data is synthetic and says so everywhere.
-
-## 13. Product field selection
-
-Before starting a crawl, expand **Product output fields**. By default, all 20 standard fields are selected. The presets include **All 20 (default)**, **Previous table view** (the previous 11-column preview), and **Custom**. Individual field checkboxes and Select All update immediately. The selected fields control the product table and CSV/Excel exports, while the internal `PipelineResult.df` retains all 20 columns for joins, deduplication and review navigation. The crawl is blocked if no product field is selected.
-
-## 14. Review explorer (Demo and on-demand Live reviews)
-
-Enable **Review settings** before crawling to add a **View reviews** action to each product. Select a review limit (5, 10, 20, 50, or Custom) and select the review output fields independently. Review Custom input appears immediately, before Start Crawling. The maximum is configurable in `config.py`; zero is rejected.
-
-- For Demo products, opening a review page generates deterministic **synthetic example reviews** locally. These are not real Shopee reviews or actual customer statements. All review pages and exports are labelled `demo_synthetic`.
-- For Live products, the page uses the `memo23/shopee-reviews-scraper` Apify Actor only after you tick the charge acknowledgement and click the explicit **Fetch Live reviews** button. Opening a product's review page does not start a run.
-- The Live provider asks for written comments only, limits the run to the configured review count (1–100), sends `max_items` and `max_total_charge_usd`, and fails closed if the installed Apify client cannot send the charge cap. It does not use cookies, browser automation, proxies or CAPTCHA bypass.
-- The Actor reads a shop-level review feed, not a dedicated product review feed. Rows are kept only when a product ID is present, and the common parser drops rows belonging to another product. Results can be partial and the star-rating budget may be spread across ratings, so the returned reviews are not guaranteed to be the latest ones.
-- The UI estimate uses the Actor's published Free-tier price snapshot plus an assumed start event; this is not a quote and may not match your account. The per-run charge cap is also sent to Apify. Review the Actor's current Pricing tab and your account balance before fetching. No Live request happens automatically, and the app does not retry failed runs automatically.
-- Review records are separate from the product dataset. The page shows review count, requested maximum, cache state, coverage and ordering. You can return to the products without losing the product results.
-- Review output has 13 normalized fields: `review_id`, `product_id`, `shop_id`, `rating`, `comment`, `created_at`, `purchased_variant`, `like_count`, `seller_reply`, `review_image_count`, `review_images`, `data_source`, and `scraped_at`. Review image URLs are excluded from the default selection.
-- Review CSV and Excel files use the name `shopee_reviews_<product_id>_<YYYYMMDD_HHMMSS>.<csv|xlsx>` and are saved in `data/exports/`.
-
-### Review cache and privacy
-
-Only normalized, best-effort-redacted review records are cached locally, in `data/cache/reviews/`. Non-empty entries expire after 24 hours; empty results expire after 30 minutes. The cache key is hashed so product identifiers are not exposed in the filename. Use **Clear local review cache and return** on the review page to clear the local review cache.
-
-Automatic redaction attempts to replace common phone numbers, email addresses, URLs, long digit runs and explicitly marked contact handles before local cache, display or export. It can miss names, addresses, obfuscated or written-out numbers, and personal information expressed indirectly; it can also redact benign long numbers. It is not a guarantee of anonymization. The synthetic Demo data includes deliberately fake contact strings to exercise this safeguard.
-
-The app stores only normalized, best-effort-redacted review rows locally. The Live provider filters to the small allowlist of fields needed for the review schema and discards reviewer names, order IDs, buyer region and other direct identifiers before returning rows to the pipeline. After reading the default dataset, it attempts to delete the Actor's output dataset and default key-value store; the UI warns if deletion cannot be confirmed. This does not guarantee removal from provider logs or backups, and it does not change the provider's responsibility for remote data retention.
-
-## 15. Review access limitations and compliance note
-
-The existing Live product crawler is preserved and still behaves as before; this upgrade does not add a gate to it. Live review collection uses a third-party Apify Actor, not an official Shopee API, and is invoked only after explicit user confirmation. A third-party scraper does not itself establish permission to collect Shopee content; verify the applicable platform terms and authorization before using it. No CAPTCHA bypass, stealth mode, unauthorized login/cookies, proxy rotation or other anti-bot evasion is implemented.
-
-## 16. Testing the review workflow
-
-The review workflow is tested with synthetic records and fake Apify clients only. Automated tests must not call Shopee or Apify, use a real token or spend credits. The Live-provider tests verify the Actor input and charge cap with a fake client, plus response mapping, product attribution, redaction and remote-storage deletion attempts. The test suite isolates export/cache output in temporary directories so running tests does not create files in the project’s `data/exports/`.
+**Ghi chú:** README mô tả hành vi được triển khai trong mã nguồn. Khả năng lấy dữ liệu Live cần được xác minh riêng trong môi trường và tài khoản cụ thể; không nên tuyên bố Live đã chạy thành công nếu chưa thực sự kiểm tra.
