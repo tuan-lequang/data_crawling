@@ -2,7 +2,7 @@
 
 Shopee Crawler là ứng dụng Python có giao diện Streamlit, hỗ trợ thu thập dữ liệu sản phẩm theo từ khóa, chuẩn hóa dữ liệu, loại bản ghi trùng, hiển thị kết quả và xuất CSV/Excel. Dự án có thêm trang **Review Explorer** để minh họa luồng xem và xuất dữ liệu đánh giá.
 
-> **Khuyến nghị khi chấm/demo:** chọn **Demo Dataset** trước. Dữ liệu Demo được tạo sẵn và gắn nhãn rõ ràng; chạy được ngoại tuyến, không cần API token và không gọi Actor có tính phí.
+
 
 ## 1. Chức năng chính
 
@@ -203,23 +203,9 @@ Chạy:
 
 Bộ test bao gồm parser, làm sạch, loại trùng, pipeline Demo, xuất CSV/Excel, provider Apify qua fake/mock client và các luồng giao diện. Kiểm thử tự động không phải là bằng chứng rằng dịch vụ Live hoạt động trong tài khoản hiện tại; không cần chạy Actor thật để thực hiện bộ test.
 
-## 11. Giới hạn đã biết
 
-- Demo Dataset là dữ liệu tổng hợp để kiểm tra luồng xử lý, không đại diện cho kết quả thị trường thật.
-- Dữ liệu Live phụ thuộc cấu trúc phản hồi, giới hạn, tính sẵn sàng và chính sách giá của Actor bên thứ ba.
-- Có thể nhận ít bản ghi hợp lệ hơn số lượng đã yêu cầu do dữ liệu nguồn, giới hạn Actor, bản ghi lỗi hoặc trùng lặp.
-- Một số trường như URL sản phẩm, tên shop, danh mục hoặc số lượng đã bán có thể không có trong phản hồi.
-- Sắp xếp “Top rated” được thực hiện trên tập dữ liệu đã lấy về, không phải xếp hạng toàn bộ Shopee.
-- Redaction review có thể bỏ sót dữ liệu cá nhân hoặc che nhầm một chuỗi số hợp lệ.
 
-## 12. Gợi ý demo/thuyết trình
 
-1. Mở ứng dụng với **Demo Dataset** và từ khóa `giày sneaker nam`.
-2. Giải thích các bước của pipeline và những chỉ số sau xử lý.
-3. Minh họa lựa chọn trường dữ liệu: All 20, Previous table view và Custom.
-4. Xuất CSV và Excel, mở file để kiểm tra cột, tiếng Việt và các ID.
-5. Nếu bật Review Explorer, xem review Demo và nói rõ đây là dữ liệu tổng hợp.
-6. Chỉ trình diễn Live khi đã có cơ sở sử dụng phù hợp, token hoạt động và đã chấp nhận chi phí; nên chuẩn bị trước bản xuất mẫu làm phương án dự phòng.
 
 ---
 
